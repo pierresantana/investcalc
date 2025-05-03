@@ -129,3 +129,8 @@ button:active {
   border-color: #f97316 !important;
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2) !important;
 }
+
+footer p {
+  margin: 0.5rem 0;
+  color: #666666;
+}

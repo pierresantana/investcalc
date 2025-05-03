@@ -30,25 +30,32 @@ function App() {
   const [result, setResult] = useState<number | null>(null);
   const [netResult, setNetResult] = useState<number | null>(null);
   const [taxRate, setTaxRate] = useState<number>(15);
+  const [equivalentRate, setEquivalentRate] = useState<number | null>(null);
+  const [equivalentMonthlyRate, setEquivalentMonthlyRate] = useState<number | null>(null);
   const [isEditingPrincipal, setIsEditingPrincipal] = useState<boolean>(false);
   const principalInputRef = useRef<HTMLInputElement>(null);
+  const [comparisonEnabled, setComparisonEnabled] = useState<boolean>(true);
+  const [valueChanged, setValueChanged] = useState<boolean>(false);
 
   // Atualiza o valor formatado quando o principal muda
   useEffect(() => {
     if (!isEditingPrincipal) {
       setPrincipalFormatted(formatCurrency(principal));
     }
+    // Não recalcular resultados aqui
   }, [principal, isEditingPrincipal]);
 
-  // Atualiza a taxa mensal quando a taxa anual muda
+  // Atualiza a taxa mensal quando a taxa anual muda, mas sem recalcular resultados
   useEffect(() => {
     setMonthlyRate(rate / 12);
+    // Não recalcular resultados aqui
   }, [rate]);
 
-  // Atualiza a taxa anual quando a taxa mensal muda
+  // Atualiza a taxa anual quando a taxa mensal muda, mas sem recalcular resultados
   const handleMonthlyRateChange = (value: number) => {
     setMonthlyRate(value);
     setRate(value * 12);
+    // Não recalcular resultados aqui
   };
 
   // Função utilitária para remover zeros à esquerda durante a digitação
@@ -71,6 +78,9 @@ function App() {
   // Manipula mudanças no input de valor principal
   const handlePrincipalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    // Marcar que os valores foram alterados
+    setValueChanged(true);
+    
     // Se estiver vazio, definir para 0
     if (value === '') {
       setPrincipal(0);
@@ -158,7 +168,19 @@ function App() {
     return 15;
   };
 
+  // Formata valores de taxa de juros com precisão adequada
+  const formatRate = (rate: number): string => {
+    // Para taxas pequenas, mostra mais casas decimais
+    if (rate < 0.1) return rate.toFixed(4);
+    if (rate < 1) return rate.toFixed(3);
+    if (rate < 10) return rate.toFixed(2);
+    return rate.toFixed(1);
+  };
+
   const calculateCompoundInterest = () => {
+    // Resetar o indicador de mudança
+    setValueChanged(false);
+    
     // A = P(1 + r/n)^(nt)
     // A: final amount
     // P: principal
@@ -183,8 +205,17 @@ function App() {
     const netProfit = grossProfit - tax;
     const netAmount = P + netProfit;
     
+    // Calcula a taxa equivalente sem imposto
+    // Para um investimento isento, a taxa que gera o mesmo resultado líquido
+    // pode ser calculada invertendo a fórmula de juros compostos
+    // Fórmula: r = n * ((netAmount/P)^(1/(n*t)) - 1)
+    const equivalentTaxRate = n * ((netAmount/P)**(1/(n*t)) - 1) * 100;
+    const equivalentMonthlyTaxRate = equivalentTaxRate / 12;
+    
     setResult(A);
     setNetResult(netAmount);
+    setEquivalentRate(equivalentTaxRate);
+    setEquivalentMonthlyRate(equivalentMonthlyTaxRate);
   };
 
   return (
@@ -237,6 +268,7 @@ function App() {
                 const numericValue = Number.parseFloat(cleanValue);
                 if (!Number.isNaN(numericValue)) {
                   setRate(numericValue);
+                  setValueChanged(true);
                 }
               }}
               onKeyDown={handleNumericInput}
@@ -270,6 +302,7 @@ function App() {
                 const numericValue = Number.parseFloat(cleanValue);
                 if (!Number.isNaN(numericValue)) {
                   handleMonthlyRateChange(numericValue);
+                  setValueChanged(true);
                 }
               }}
               onKeyDown={handleNumericInput}
@@ -306,6 +339,7 @@ function App() {
                 const numericValue = Number.parseInt(cleanValue, 10);
                 if (!Number.isNaN(numericValue)) {
                   setTime(numericValue);
+                  setValueChanged(true);
                 }
               }}
               onKeyDown={handleNumericInput}
@@ -320,7 +354,10 @@ function App() {
             <select
               id="timeUnit"
               value={timeUnit}
-              onChange={(e) => setTimeUnit(e.target.value as TimeUnit)}
+              onChange={(e) => {
+                setTimeUnit(e.target.value as TimeUnit);
+                setValueChanged(true);
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 input-field"
             >
               <option value="days">Dias</option>
@@ -337,7 +374,10 @@ function App() {
           <select
             id="compoundFrequency"
             value={compoundFrequency}
-            onChange={(e) => setCompoundFrequency(Number(e.target.value))}
+            onChange={(e) => {
+              setCompoundFrequency(Number(e.target.value));
+              setValueChanged(true);
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 input-field"
           >
             <option value={1}>Anual</option>
@@ -351,13 +391,33 @@ function App() {
         <button
           type="button"
           onClick={calculateCompoundInterest}
-          className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+          className={`w-full ${valueChanged ? 'bg-orange-500 animate-pulse' : 'bg-orange-500'} hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500`}
         >
-          Calcular
+          {valueChanged && result !== null ? 'Recalcular' : 'Calcular'}
         </button>
         
+        {valueChanged && result !== null && (
+          <div className="mt-2 text-center text-xs text-orange-600 animate-pulse">
+            ⚠️ Os valores foram alterados. Clique em "Recalcular" para atualizar os resultados.
+          </div>
+        )}
+        
         {result !== null && (
-          <div className="mt-4 sm:mt-6 p-4 bg-gray-100 rounded-md result-container">
+          <div className={`mt-4 sm:mt-6 p-4 bg-gray-100 rounded-md result-container ${valueChanged ? 'opacity-70' : ''} relative`}>
+            {valueChanged && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-700 bg-opacity-30 rounded-md z-10">
+                <div className="bg-white p-3 rounded-md shadow-md text-center">
+                  <p className="text-orange-600 font-bold mb-2">Valores desatualizados</p>
+                  <button 
+                    type="button"
+                    onClick={calculateCompoundInterest}
+                    className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md text-sm"
+                  >
+                    Recalcular agora
+                  </button>
+                </div>
+              </div>
+            )}
             <h2 className="text-lg font-bold mb-2 result-title">Resultado:</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
@@ -383,6 +443,52 @@ function App() {
               <p className="text-xs text-gray-600">
                 Período: {(convertToYears(time, timeUnit) * 365).toFixed(0)} dias
               </p>
+              {equivalentRate !== null && (
+                <div className="mt-3 border-t border-orange-200 pt-3">
+                  <p className="text-sm font-semibold mb-1">
+                    Taxa Equivalente Sem Imposto: <span className="text-orange-600">{formatRate(equivalentRate)}% a.a.</span>
+                    {equivalentMonthlyRate !== null && (
+                      <span className="ml-1 text-orange-500">({formatRate(equivalentMonthlyRate)}% a.m.)</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Esta é a taxa bruta que um investimento isento de IR precisaria ter para igualar o rendimento líquido desta aplicação.
+                  </p>
+                  
+                  <div className="flex items-center mt-2">
+                    <input
+                      type="checkbox"
+                      id="showComparison"
+                      checked={comparisonEnabled}
+                      onChange={(e) => setComparisonEnabled(e.target.checked)}
+                      className="h-4 w-4 text-orange-500 focus:ring-orange-400 border-gray-300 rounded"
+                    />
+                    <label htmlFor="showComparison" className="ml-2 text-xs text-gray-700">
+                      Mostrar comparativo detalhado
+                    </label>
+                  </div>
+                  
+                  {comparisonEnabled && equivalentRate !== null && result !== null && netResult !== null && (
+                    <div className="mt-3 pt-2">
+                      <p className="text-xs font-semibold mb-2">Comparativo para {formatCurrency(principal)} em {time} {timeUnit === 'days' ? 'dias' : timeUnit === 'months' ? 'meses' : 'anos'}:</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div className="bg-orange-50 p-2 rounded">
+                          <p className="font-semibold text-orange-700">Investimento com IR ({rate}%):</p>
+                          <p>Rendimento Bruto: {formatCurrency(result - principal)}</p>
+                          <p>IR ({taxRate}%): {formatCurrency((result - principal) * (taxRate / 100))}</p>
+                          <p className="font-bold">Rendimento Líquido: {formatCurrency(netResult - principal)}</p>
+                        </div>
+                        <div className="bg-gray-50 p-2 rounded">
+                          <p className="font-semibold text-gray-700">Investimento Isento ({formatRate(equivalentRate)}%):</p>
+                          <p>Rendimento: {formatCurrency(principal * ((1 + equivalentRate/100/compoundFrequency) ** (compoundFrequency * convertToYears(time, timeUnit))) - principal)}</p>
+                          <p>IR: {formatCurrency(0)}</p>
+                          <p className="font-bold">Rendimento Líquido: {formatCurrency(netResult - principal)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -409,6 +515,17 @@ function App() {
             </p>
           </div>
         )}
+        <footer className="w-full text-center text-xs text-gray-500 mt-6">
+          <p className="font-medium">
+            &copy; {new Date().getFullYear()} - Calculadora de Juros Compostos
+          </p>
+          <p className="text-orange-600 font-semibold">
+            Desenvolvido por <a href="https://www.linkedin.com/in/pierresantana/" target="_blank" rel="noopener noreferrer">Pierre Santana</a>
+          </p>
+          <p className="text-gray-400 text-[10px] mt-1">
+            Versão 1.0.0 | Todos os direitos reservados
+          </p>
+        </footer>
       </div>
     </div>
   );
