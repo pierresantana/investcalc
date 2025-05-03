@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import CurrencyInput from 'react-currency-input-field';
 import './App.css';
 
 // Tipos para a unidade de tempo
@@ -14,16 +15,15 @@ const formatCurrency = (value: number): string => {
   });
 };
 
-// Função para remover formatação de moeda e retornar apenas o número
-const unformatCurrency = (formattedValue: string): number => {
-  return Number(formattedValue.replace(/[^\d,-]/g, '').replace(',', '.'));
-};
-
 function App() {
-  const [principal, setPrincipal] = useState<number>(100000);
-  const [principalFormatted, setPrincipalFormatted] = useState<string>('');
-  const [rate, setRate] = useState<number>(8);
-  const [monthlyRate, setMonthlyRate] = useState<number>(rate / 12);
+  const [principal, setPrincipal] = useState<string>('100000,00');
+  const [monthlyContribution, setMonthlyContribution] = useState<string>('0,00');
+  const [rate, setRate] = useState<string>('8');
+  const [monthlyRate, setMonthlyRate] = useState<string>(() => {
+    const annualRate = 8; // Initial annual rate
+    const initialMonthlyRate = ((1 + annualRate / 100) ** (1/12) - 1) * 100;
+    return initialMonthlyRate.toFixed(4).replace('.', ',');
+  });
   const [time, setTime] = useState<number>(12);
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('months');
   const [compoundFrequency, setCompoundFrequency] = useState<number>(365);
@@ -32,117 +32,59 @@ function App() {
   const [taxRate, setTaxRate] = useState<number>(15);
   const [equivalentRate, setEquivalentRate] = useState<number | null>(null);
   const [equivalentMonthlyRate, setEquivalentMonthlyRate] = useState<number | null>(null);
-  const [isEditingPrincipal, setIsEditingPrincipal] = useState<boolean>(false);
-  const principalInputRef = useRef<HTMLInputElement>(null);
   const [comparisonEnabled, setComparisonEnabled] = useState<boolean>(true);
   const [valueChanged, setValueChanged] = useState<boolean>(false);
 
-  // Atualiza o valor formatado quando o principal muda
+  // Atualiza a taxa mensal quando a taxa anual muda
   useEffect(() => {
-    if (!isEditingPrincipal) {
-      setPrincipalFormatted(formatCurrency(principal));
+    // Calculando a taxa mensal a partir da taxa anual usando juros compostos
+    // Formula: (1 + taxa_anual/100)^(1/12) - 1
+    try {
+      const annualRateStr = rate.replace(',', '.');
+      const annualRate = Number.parseFloat(annualRateStr);
+      
+      if (annualRateStr === '' || Number.isNaN(annualRate)) {
+        setMonthlyRate('0,0000');
+        return;
+      }
+      
+      const calculatedMonthlyRate = ((1 + annualRate / 100) ** (1/12) - 1) * 100;
+      setMonthlyRate(calculatedMonthlyRate.toFixed(4).replace('.', ','));
+    } catch (error) {
+      setMonthlyRate('0,0000');
     }
-    // Não recalcular resultados aqui
-  }, [principal, isEditingPrincipal]);
-
-  // Atualiza a taxa mensal quando a taxa anual muda, mas sem recalcular resultados
-  useEffect(() => {
-    setMonthlyRate(rate / 12);
-    // Não recalcular resultados aqui
   }, [rate]);
 
-  // Atualiza a taxa anual quando a taxa mensal muda, mas sem recalcular resultados
-  const handleMonthlyRateChange = (value: number) => {
-    setMonthlyRate(value);
-    setRate(value * 12);
-    // Não recalcular resultados aqui
-  };
-
-  // Função utilitária para remover zeros à esquerda durante a digitação
-  const removeLeadingZeros = (value: string) => {
-    // Caso especial para "0" ou "0."
-    if (value === '0' || value === '0.') return value;
-    
-    // Para números decimais, preserva um único zero antes do ponto decimal
-    if (value.includes('.')) {
-      const parts = value.split('.');
-      // Remove zeros à esquerda da parte inteira, mas mantém pelo menos um dígito
-      const integerPart = parts[0].replace(/^0+/, '') || '0';
-      return `${integerPart}.${parts[1]}`;
-    }
-    
-    // Para números inteiros, remove todos os zeros à esquerda
-    return value.replace(/^0+/, '') || '0';
-  };
-
-  // Manipula mudanças no input de valor principal
-  const handlePrincipalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // Marcar que os valores foram alterados
-    setValueChanged(true);
-    
-    // Se estiver vazio, definir para 0
-    if (value === '') {
-      setPrincipal(0);
-      setPrincipalFormatted('');
-      return;
-    }
-    
-    // Remove caracteres não numéricos
-    const numericValue = value.replace(/[^\d]/g, '');
-    
-    if (numericValue) {
-      // Remove zeros à esquerda e converte para número
-      const cleanValue = removeLeadingZeros(numericValue);
-      const parsedValue = Number.parseInt(cleanValue, 10);
-      setPrincipal(parsedValue);
-      
-      // Atualiza o valor formatado sem zeros à esquerda
-      if (isEditingPrincipal) {
-        if (principalInputRef.current) {
-          principalInputRef.current.value = cleanValue;
-        }
-      } else {
-        setPrincipalFormatted(value);
+  // Atualiza a taxa anual quando a taxa mensal muda
+  const handleMonthlyRateChange = (value: string | undefined) => {
+    try {
+      if (!value) {
+        setMonthlyRate('0,0000');
+        setRate('0');
+        setValueChanged(true);
+        return;
       }
-    }
-  };
-
-  // Manipula o foco no input de valor principal
-  const handlePrincipalFocus = () => {
-    setIsEditingPrincipal(true);
-    if (principalInputRef.current) {
-      // Garante que não haja zeros à esquerda ao editar
-      principalInputRef.current.value = principal.toString().replace(/^0+/, '') || '0';
-    }
-  };
-
-  // Manipula a perda de foco no input de valor principal
-  const handlePrincipalBlur = () => {
-    setIsEditingPrincipal(false);
-    setPrincipalFormatted(formatCurrency(principal));
-  };
-
-  // Função utilitária para validar entrada numérica
-  const handleNumericInput = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    // Permitir backspace, delete, tab, escape, enter, setas, ponto e vírgula
-    if ([
-      'Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 
-      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-      '.', ',', '-'
-    ].indexOf(event.key) !== -1 ||
-    // Permitir Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-    (
-      ['a', 'c', 'v', 'x'].indexOf(event.key.toLowerCase()) !== -1 && 
-      (event.ctrlKey || event.metaKey)
-    )
-    ) {
-      return;
-    }
-    
-    // Permitir apenas dígitos
-    if (!/[0-9]/.test(event.key)) {
-      event.preventDefault();
+      
+      const monthlyRateValue = Number.parseFloat(value.replace(',', '.'));
+      
+      if (Number.isNaN(monthlyRateValue)) {
+        setMonthlyRate('0,0000');
+        setRate('0');
+        setValueChanged(true);
+        return;
+      }
+      
+      setMonthlyRate(monthlyRateValue.toFixed(4).replace('.', ','));
+      
+      // Calculando a taxa anual a partir da taxa mensal usando juros compostos
+      // Formula: (1 + taxa_mensal/100)^12 - 1
+      const calculatedAnnualRate = ((1 + monthlyRateValue / 100) ** 12 - 1) * 100;
+      setRate(calculatedAnnualRate.toFixed(2).replace('.', ','));
+      setValueChanged(true);
+    } catch (error) {
+      setMonthlyRate('0,0000');
+      setRate('0');
+      setValueChanged(true);
     }
   };
 
@@ -181,35 +123,78 @@ function App() {
     // Resetar o indicador de mudança
     setValueChanged(false);
     
-    // A = P(1 + r/n)^(nt)
-    // A: final amount
-    // P: principal
-    // r: annual interest rate (in decimal)
-    // n: number of times compounded per year
-    // t: time in years
-    
-    const r = rate / 100; // convert percentage to decimal
+    const r = Number.parseFloat(rate.replace(',', '.')) / 100; // convert percentage to decimal
     const n = compoundFrequency;
     const t = convertToYears(time, timeUnit);
-    const P = principal;
+    const P = Number.parseFloat(principal.replace(',', '.'));
+    const M = Number.parseFloat(monthlyContribution.replace(',', '.'));
     
-    const A = P * ((1 + r/n) ** (n * t));
+    let A: number;
+    
+    if (M > 0) {
+      // Quando há aportes mensais, usamos uma fórmula diferente
+      // Para aportes mensais, consideramos que o aporte é feito no início de cada mês
+      
+      // Calculamos o número total de meses
+      const totalMonths = Math.ceil(t * 12);
+      
+      // Começamos com o principal
+      let currentBalance = P;
+      
+      // Taxa mensal efetiva (considerando a capitalização)
+      const effectiveMonthlyRate = ((1 + r/n) ** (n/12)) - 1;
+      
+      // Para cada mês, adicionamos o aporte e calculamos os juros
+      for (let month = 0; month < totalMonths; month++) {
+        // Adiciona o aporte mensal (exceto no primeiro mês, pois já temos o principal)
+        if (month > 0) {
+          currentBalance += M;
+        }
+        
+        // Aplica os juros mensais
+        currentBalance *= (1 + effectiveMonthlyRate);
+      }
+      
+      A = currentBalance;
+    } else {
+      // Fórmula padrão de juros compostos sem aportes mensais
+      // A = P(1 + r/n)^(nt)
+      // A: final amount
+      // P: principal
+      // r: annual interest rate (in decimal)
+      // n: number of times compounded per year
+      // t: time in years
+      A = P * ((1 + r/n) ** (n * t));
+    }
     
     // Calcula a alíquota de imposto
     const currentTaxRate = calculateTaxRate(t);
     setTaxRate(currentTaxRate);
     
+    // Total investido (principal + total de aportes mensais)
+    let totalInvested: number;
+    
+    if (M > 0) {
+      // Total de meses excluindo o mês inicial (que é o principal)
+      const contributionMonths = Math.ceil(t * 12) - 1;
+      totalInvested = P + (M * Math.max(0, contributionMonths));
+    } else {
+      totalInvested = P;
+    }
+    
     // Calcula o valor bruto e líquido
-    const grossProfit = A - P;
+    const grossProfit = A - totalInvested;
     const tax = grossProfit * (currentTaxRate / 100);
     const netProfit = grossProfit - tax;
-    const netAmount = P + netProfit;
+    const netAmount = totalInvested + netProfit;
     
     // Calcula a taxa equivalente sem imposto
     // Para um investimento isento, a taxa que gera o mesmo resultado líquido
     // pode ser calculada invertendo a fórmula de juros compostos
     // Fórmula: r = n * ((netAmount/P)^(1/(n*t)) - 1)
-    const equivalentTaxRate = n * ((netAmount/P)**(1/(n*t)) - 1) * 100;
+    
+    // Quando há aportes mensais, esta é uma aproximação
+    const equivalentTaxRate = n * ((netAmount/totalInvested)**(1/(n*t)) - 1) * 100;
     const equivalentMonthlyTaxRate = equivalentTaxRate / 12;
     
     setResult(A);
@@ -227,16 +212,50 @@ function App() {
           <label htmlFor="principal" className="block text-gray-700 text-sm font-bold mb-2">
             Valor Principal
           </label>
-          <input
+          <CurrencyInput
             id="principal"
-            ref={principalInputRef}
-            type={isEditingPrincipal ? "number" : "text"}
-            inputMode="decimal"
-            value={isEditingPrincipal ? principal : principalFormatted}
-            onChange={handlePrincipalChange}
-            onFocus={handlePrincipalFocus}
-            onBlur={handlePrincipalBlur}
-            onKeyDown={handleNumericInput}
+            name="principal"
+            placeholder="0,00"
+            decimalsLimit={2}
+            decimalSeparator=","
+            groupSeparator="."
+            prefix="R$ "
+            defaultValue={principal}
+            value={principal}
+            onValueChange={(value) => {
+              if (value) {
+                setPrincipal(value);
+                setValueChanged(true);
+              } else {
+                setPrincipal('0,00');
+              }
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 input-field"
+          />
+        </div>
+        
+        <div className="form-group mb-4">
+          <label htmlFor="monthlyContribution" className="block text-gray-700 text-sm font-bold mb-2">
+            Aporte Mensal
+          </label>
+          <CurrencyInput
+            id="monthlyContribution"
+            name="monthlyContribution"
+            placeholder="0,00"
+            decimalsLimit={4}
+            decimalSeparator=","
+            groupSeparator="."
+            prefix="R$ "
+            defaultValue={monthlyContribution}
+            value={monthlyContribution}
+            onValueChange={(value) => {
+              if (value) {
+                setMonthlyContribution(value);
+                setValueChanged(true);
+              } else {
+                setMonthlyContribution('0,00');
+              }
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 input-field"
           />
         </div>
@@ -246,32 +265,35 @@ function App() {
             <label htmlFor="rate" className="block text-gray-700 text-sm font-bold mb-2">
               Taxa de Juros Anual (%)
             </label>
-            <input
+            <CurrencyInput
               id="rate"
-              type="number"
-              inputMode="decimal"
+              name="rate"
+              placeholder="0,00"
+              decimalsLimit={4}
+              decimalSeparator=","
+              groupSeparator="."
+              suffix="%"
+              defaultValue={rate}
               value={rate}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === '') {
-                  setRate(0);
-                  return;
-                }
-                
-                // Remove zeros à esquerda mantendo estrutura decimal
-                const cleanValue = removeLeadingZeros(value);
-                
-                // Atualiza o campo com o valor limpo
-                e.target.value = cleanValue;
-                
-                // Converte para número
-                const numericValue = Number.parseFloat(cleanValue);
-                if (!Number.isNaN(numericValue)) {
-                  setRate(numericValue);
+              onValueChange={(value) => {
+                try {
+                  if (value) {
+                    // Verify if it's a valid number
+                    const testValue = Number.parseFloat(value.replace(',', '.'));
+                    if (!Number.isNaN(testValue)) {
+                      setRate(value);
+                    } else {
+                      setRate('0');
+                    }
+                  } else {
+                    setRate('0');
+                  }
+                  setValueChanged(true);
+                } catch (error) {
+                  setRate('0');
                   setValueChanged(true);
                 }
               }}
-              onKeyDown={handleNumericInput}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 input-field"
             />
           </div>
@@ -280,33 +302,17 @@ function App() {
             <label htmlFor="monthlyRate" className="block text-gray-700 text-sm font-bold mb-2">
               Taxa de Juros Mensal (%)
             </label>
-            <input
+            <CurrencyInput
               id="monthlyRate"
-              type="number"
-              inputMode="decimal"
-              value={monthlyRate.toFixed(4)}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === '') {
-                  handleMonthlyRateChange(0);
-                  return;
-                }
-                
-                // Remove zeros à esquerda mantendo estrutura decimal
-                const cleanValue = removeLeadingZeros(value);
-                
-                // Atualiza o campo com o valor limpo
-                e.target.value = cleanValue;
-                
-                // Converte para número 
-                const numericValue = Number.parseFloat(cleanValue);
-                if (!Number.isNaN(numericValue)) {
-                  handleMonthlyRateChange(numericValue);
-                  setValueChanged(true);
-                }
-              }}
-              onKeyDown={handleNumericInput}
-              step="0.0001"
+              name="monthlyRate"
+              placeholder="0,0000"
+              decimalsLimit={6}
+              decimalSeparator=","
+              groupSeparator="."
+              suffix="%"
+              defaultValue={monthlyRate}
+              value={monthlyRate}
+              onValueChange={(value) => handleMonthlyRateChange(value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 input-field"
             />
           </div>
@@ -317,32 +323,22 @@ function App() {
             <label htmlFor="time" className="block text-gray-700 text-sm font-bold mb-2">
               Tempo
             </label>
-            <input
+            <CurrencyInput
               id="time"
-              type="number"
-              inputMode="numeric"
+              name="time"
+              placeholder="0"
+              decimalsLimit={0}
+              disableGroupSeparators={true}
+              defaultValue={time}
               value={time}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === '') {
-                  setTime(0);
-                  return;
-                }
-                
-                // Remove zeros à esquerda
-                const cleanValue = removeLeadingZeros(value);
-                
-                // Atualiza o campo com o valor limpo
-                e.target.value = cleanValue;
-                
-                // Converte para número inteiro
-                const numericValue = Number.parseInt(cleanValue, 10);
-                if (!Number.isNaN(numericValue)) {
-                  setTime(numericValue);
+              onValueChange={(value) => {
+                if (value) {
+                  setTime(Number(value));
                   setValueChanged(true);
+                } else {
+                  setTime(0);
                 }
               }}
-              onKeyDown={handleNumericInput}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 input-field"
             />
           </div>
@@ -430,7 +426,18 @@ function App() {
                 <p className="text-sm result-title">
                   <span className="font-bold">Juros Ganhos (Bruto):</span>
                 </p>
-                <p className="text-lg sm:text-xl mb-1 result-value">{formatCurrency(result - principal)}</p>
+                {Number.parseFloat(monthlyContribution.replace(',', '.')) > 0 ? (
+                  <>
+                    <p className="text-lg sm:text-xl mb-1 result-value">
+                      {formatCurrency(result - (Number.parseFloat(principal.replace(',', '.')) + (Number.parseFloat(monthlyContribution.replace(',', '.')) * (Math.ceil(convertToYears(time, timeUnit) * 12) - 1))))}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      Total investido: {formatCurrency(Number.parseFloat(principal.replace(',', '.')) + (Number.parseFloat(monthlyContribution.replace(',', '.')) * (Math.ceil(convertToYears(time, timeUnit) * 12) - 1)))}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-lg sm:text-xl mb-1 result-value">{formatCurrency(result - Number.parseFloat(principal.replace(',', '.')))}</p>
+                )}
               </div>
             </div>
             
@@ -470,19 +477,49 @@ function App() {
                   
                   {comparisonEnabled && equivalentRate !== null && result !== null && netResult !== null && (
                     <div className="mt-3 pt-2">
-                      <p className="text-xs font-semibold mb-2">Comparativo para {formatCurrency(principal)} em {time} {timeUnit === 'days' ? 'dias' : timeUnit === 'months' ? 'meses' : 'anos'}:</p>
+                      {Number.parseFloat(monthlyContribution.replace(',', '.')) > 0 ? (
+                        <p className="text-xs font-semibold mb-2">
+                          Comparativo para {formatCurrency(Number.parseFloat(principal.replace(',', '.')))} inicial + {formatCurrency(Number.parseFloat(monthlyContribution.replace(',', '.')))} mensais em {time} {timeUnit === 'days' ? 'dias' : timeUnit === 'months' ? 'meses' : 'anos'}:
+                        </p>
+                      ) : (
+                        <p className="text-xs font-semibold mb-2">
+                          Comparativo para {formatCurrency(Number.parseFloat(principal.replace(',', '.')))} em {time} {timeUnit === 'days' ? 'dias' : timeUnit === 'months' ? 'meses' : 'anos'}:
+                        </p>
+                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                         <div className="bg-orange-50 p-2 rounded">
                           <p className="font-semibold text-orange-700">Investimento com IR ({rate}%):</p>
-                          <p>Rendimento Bruto: {formatCurrency(result - principal)}</p>
-                          <p>IR ({taxRate}%): {formatCurrency((result - principal) * (taxRate / 100))}</p>
-                          <p className="font-bold">Rendimento Líquido: {formatCurrency(netResult - principal)}</p>
+                          {Number.parseFloat(monthlyContribution.replace(',', '.')) > 0 ? (
+                            <>
+                              <p>Total Investido: {formatCurrency(Number.parseFloat(principal.replace(',', '.')) + (Number.parseFloat(monthlyContribution.replace(',', '.')) * (Math.ceil(convertToYears(time, timeUnit) * 12) - 1)))}</p>
+                              <p>Rendimento Bruto: {formatCurrency(result - (Number.parseFloat(principal.replace(',', '.')) + (Number.parseFloat(monthlyContribution.replace(',', '.')) * (Math.ceil(convertToYears(time, timeUnit) * 12) - 1))))}</p>
+                              <p>IR ({taxRate}%): {formatCurrency((result - (Number.parseFloat(principal.replace(',', '.')) + (Number.parseFloat(monthlyContribution.replace(',', '.')) * (Math.ceil(convertToYears(time, timeUnit) * 12) - 1)))) * (taxRate / 100))}</p>
+                              <p className="font-bold">Rendimento Líquido: {formatCurrency(netResult - (Number.parseFloat(principal.replace(',', '.')) + (Number.parseFloat(monthlyContribution.replace(',', '.')) * (Math.ceil(convertToYears(time, timeUnit) * 12) - 1))))}</p>
+                            </>
+                          ) : (
+                            <>
+                              <p>Rendimento Bruto: {formatCurrency(result - Number.parseFloat(principal.replace(',', '.')))}</p>
+                              <p>IR ({taxRate}%): {formatCurrency((result - Number.parseFloat(principal.replace(',', '.'))) * (taxRate / 100))}</p>
+                              <p className="font-bold">Rendimento Líquido: {formatCurrency(netResult - Number.parseFloat(principal.replace(',', '.')))}</p>
+                            </>
+                          )}
                         </div>
                         <div className="bg-gray-50 p-2 rounded">
                           <p className="font-semibold text-gray-700">Investimento Isento ({formatRate(equivalentRate)}%):</p>
-                          <p>Rendimento: {formatCurrency(principal * ((1 + equivalentRate/100/compoundFrequency) ** (compoundFrequency * convertToYears(time, timeUnit))) - principal)}</p>
-                          <p>IR: {formatCurrency(0)}</p>
-                          <p className="font-bold">Rendimento Líquido: {formatCurrency(netResult - principal)}</p>
+                          {Number.parseFloat(monthlyContribution.replace(',', '.')) > 0 ? (
+                            <>
+                              <p>Total Investido: {formatCurrency(Number.parseFloat(principal.replace(',', '.')) + (Number.parseFloat(monthlyContribution.replace(',', '.')) * (Math.ceil(convertToYears(time, timeUnit) * 12) - 1)))}</p>
+                              <p>Rendimento: {formatCurrency(netResult - (Number.parseFloat(principal.replace(',', '.')) + (Number.parseFloat(monthlyContribution.replace(',', '.')) * (Math.ceil(convertToYears(time, timeUnit) * 12) - 1))))}</p>
+                              <p>IR: {formatCurrency(0)}</p>
+                              <p className="font-bold">Rendimento Líquido: {formatCurrency(netResult - (Number.parseFloat(principal.replace(',', '.')) + (Number.parseFloat(monthlyContribution.replace(',', '.')) * (Math.ceil(convertToYears(time, timeUnit) * 12) - 1))))}</p>
+                            </>
+                          ) : (
+                            <>
+                              <p>Rendimento: {formatCurrency(Number.parseFloat(principal.replace(',', '.')) * ((1 + equivalentRate/100/compoundFrequency) ** (compoundFrequency * convertToYears(time, timeUnit))) - Number.parseFloat(principal.replace(',', '.')))}</p>
+                              <p>IR: {formatCurrency(0)}</p>
+                              <p className="font-bold">Rendimento Líquido: {formatCurrency(netResult - Number.parseFloat(principal.replace(',', '.')))}</p>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -504,15 +541,29 @@ function App() {
                 <p className="text-sm result-title">
                   <span className="font-bold">Juros Ganhos (Líquido):</span>
                 </p>
-                <p className="text-lg sm:text-xl text-orange-600 mb-1">
-                  {netResult ? formatCurrency(netResult - principal) : 'R$ 0,00'}
-                </p>
+                {Number.parseFloat(monthlyContribution.replace(',', '.')) > 0 ? (
+                  <>
+                    <p className="text-lg sm:text-xl text-orange-600 mb-1">
+                      {netResult ? formatCurrency(netResult - (Number.parseFloat(principal.replace(',', '.')) + (Number.parseFloat(monthlyContribution.replace(',', '.')) * (Math.ceil(convertToYears(time, timeUnit) * 12) - 1)))) : 'R$ 0,00'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-lg sm:text-xl text-orange-600 mb-1">
+                    {netResult ? formatCurrency(netResult - Number.parseFloat(principal.replace(',', '.'))) : 'R$ 0,00'}
+                  </p>
+                )}
               </div>
             </div>
             
-            <p className="text-xs text-gray-500 mt-3">
-              Imposto de renda sobre o rendimento: {formatCurrency((result - principal) * (taxRate / 100))}
-            </p>
+            {Number.parseFloat(monthlyContribution.replace(',', '.')) > 0 ? (
+              <p className="text-xs text-gray-500 mt-3">
+                Imposto de renda sobre o rendimento: {formatCurrency((result - (Number.parseFloat(principal.replace(',', '.')) + (Number.parseFloat(monthlyContribution.replace(',', '.')) * (Math.ceil(convertToYears(time, timeUnit) * 12) - 1)))) * (taxRate / 100))}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-3">
+                Imposto de renda sobre o rendimento: {formatCurrency((result - Number.parseFloat(principal.replace(',', '.')) ) * (taxRate / 100))}
+              </p>
+            )}
           </div>
         )}
         <footer className="w-full text-center text-xs text-gray-500 mt-6">
