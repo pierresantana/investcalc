@@ -1,5 +1,15 @@
 .App {
-  text-align: center;
+  text-align: left;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+@media (min-width: 640px) {
+  .App {
+    padding: 20px;
+  }
 }
 
 .App-logo {
@@ -14,7 +24,7 @@
 }
 
 .App-header {
-  background-color: #282c34;
+  background-color: #333333;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -25,7 +35,7 @@
 }
 
 .App-link {
-  color: #61dafb;
+  color: #f97316;
 }
 
 @keyframes App-logo-spin {
@@ -35,4 +45,87 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.result-container {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.result-container:hover {
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+}
+
+button {
+  transition: all 0.2s ease-in-out;
+  background-color: #f97316 !important;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  background-color: #ea580c !important;
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  input, select {
+    font-size: 16px !important; /* Prevents zoom on focus in iOS */
+  }
+  
+  .result-container {
+    font-size: 0.95rem;
+  }
+}
+
+/* SSTEC colors */
+.tax-info {
+  background-color: #ffedd5 !important;
+}
+
+.result-value {
+  color: #333333 !important;
+}
+
+.result-title {
+  color: #333333;
+  font-weight: 600;
+}
+
+.calculator-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.calculator-title {
+  color: #f97316;
+  font-weight: 700;
+}
+
+.input-field {
+  border-color: #cbd5e1 !important;
+}
+
+.input-field:focus {
+  border-color: #f97316 !important;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2) !important;
 }
