@@ -15,6 +15,8 @@ const formatCurrency = (value: number): string => {
   });
 };
 
+const compoundFrequency = 1;
+
 function App() {
   const [principal, setPrincipal] = useState<string>('100000,00');
   const [monthlyContribution, setMonthlyContribution] = useState<string>('0,00');
@@ -26,7 +28,6 @@ function App() {
   });
   const [time, setTime] = useState<number>(12);
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('months');
-  const [compoundFrequency, setCompoundFrequency] = useState<number>(365);
   const [result, setResult] = useState<number | null>(null);
   const [netResult, setNetResult] = useState<number | null>(null);
   const [taxRate, setTaxRate] = useState<number>(15);
@@ -363,27 +364,6 @@ function App() {
           </div>
         </div>
         
-        <div className="form-group mb-4">
-          <label htmlFor="compoundFrequency" className="block text-gray-700 text-sm font-bold mb-2">
-            Frequência de Capitalização
-          </label>
-          <select
-            id="compoundFrequency"
-            value={compoundFrequency}
-            onChange={(e) => {
-              setCompoundFrequency(Number(e.target.value));
-              setValueChanged(true);
-            }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 input-field"
-          >
-            <option value={1}>Anual</option>
-            <option value={2}>Semestral</option>
-            <option value={4}>Trimestral</option>
-            <option value={12}>Mensal</option>
-            <option value={365}>Diária</option>
-          </select>
-        </div>
-        
         <button
           type="button"
           onClick={calculateCompoundInterest}
@@ -515,7 +495,7 @@ function App() {
                             </>
                           ) : (
                             <>
-                              <p>Rendimento: {formatCurrency(Number.parseFloat(principal.replace(',', '.')) * ((1 + equivalentRate/100/compoundFrequency) ** (compoundFrequency * convertToYears(time, timeUnit))) - Number.parseFloat(principal.replace(',', '.')))}</p>
+                              <p>Rendimento: {formatCurrency(Number.parseFloat(principal.replace(',', '.')) * ((1 + equivalentRate/100) ** (convertToYears(time, timeUnit))) - Number.parseFloat(principal.replace(',', '.')))}</p>
                               <p>IR: {formatCurrency(0)}</p>
                               <p className="font-bold">Rendimento Líquido: {formatCurrency(netResult - Number.parseFloat(principal.replace(',', '.')))}</p>
                             </>
