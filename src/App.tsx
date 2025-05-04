@@ -548,13 +548,7 @@ function App() {
         )}
         <footer className="w-full text-center text-xs text-gray-500 mt-6">
           <p className="font-medium">
-            &copy; {new Date().getFullYear()} - Calculadora de Juros Compostos
-          </p>
-          <p className="text-orange-600 font-semibold">
-            Desenvolvido por <a href="https://www.linkedin.com/in/pierresantana/" target="_blank" rel="noopener noreferrer">Pierre Santana</a>
-          </p>
-          <p className="text-gray-400 text-[10px] mt-1">
-            Versão 1.0.0 | Todos os direitos reservados
+            &copy; {new Date().getFullYear()}, Built with ❤️ by <a href="https://www.pierresantana.com" target="_blank" rel="noopener noreferrer">Pierre Santana</a>
           </p>
         </footer>
       </div>
